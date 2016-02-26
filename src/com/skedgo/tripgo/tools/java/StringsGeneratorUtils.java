@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 
+import com.skedgo.tools.InputCreatorListener;
 import com.skedgo.tools.model.StringsStructure;
 import com.skedgo.tools.platform.ios.IOSInputStrategy;
 import com.skedgo.tools.platform.java.JavaPropertiesOutputStrategy;
@@ -45,7 +46,7 @@ public class StringsGeneratorUtils {
 		
 	}
 
-	public void transformAllStrings(String fileName, String destJavaStringPath, String translationsPath,
+	public void transformAllStrings(final String fileName,final  String destJavaStringPath, final String translationsPath,
 			String iOSStringFileName, List<String> langs) {
 
 		try (DirectoryStream<Path> directoryStream = Files
@@ -53,7 +54,7 @@ public class StringsGeneratorUtils {
 
 			for (Path path : directoryStream) {
 
-				String lang = path.getFileName().toString();
+				final String lang = path.getFileName().toString();
 
 				if (skipLang(lang, langs)) {
 					continue;
@@ -62,24 +63,32 @@ public class StringsGeneratorUtils {
 				InputStream input = readFile(translationsPath + "/" + lang + "/" + iOSStringFileName);
 
 				IOSInputStrategy inputStrategy = IOSInputStrategy.getInstance();
-				JavaPropertiesOutputStrategy outputStrategy = JavaPropertiesOutputStrategy.getInstance();
+				final JavaPropertiesOutputStrategy outputStrategy = JavaPropertiesOutputStrategy.getInstance();
 
-				StringsStructure structure = inputStrategy.getInputValues(input);
-				structure = outputStrategy.preprocessInputNames(structure);
-				String output = outputStrategy.generateOutput(structure);
+				inputStrategy.createInputValues(input, new InputCreatorListener() {
+					
+					@Override
+					public void didFinishInputCreation(StringsStructure structure) {
+						structure = outputStrategy.preprocessInputNames(structure);
+						String output = outputStrategy.generateOutput(structure);
+						
+						String[] fileNameSplit = fileName.split("\\.");
+
+						try {
+							writeFile(destJavaStringPath + "/", fileNameSplit[0] + "_" + lang + ".properties", output);
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}						
+					}
+				});
 				
-				String[] fileNameSplit = fileName.split("\\.");
-
-				writeFile(destJavaStringPath + "/", fileNameSplit[0] + "_" + lang + ".properties", output);
-
 			}
 		} catch (Exception e) {
 			System.out.println(e);
 			e.printStackTrace();
 		}
-
 	}
-
 
 	private boolean skipLang(String langToCheck, List<String> langs) {
 
